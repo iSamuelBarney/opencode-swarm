@@ -23,12 +23,15 @@ export type { AgentDefinition } from './architect';
  */
 function getModelForAgent(
 	agentName: string,
-	swarmAgents?: Record<string, { model?: string; temperature?: number; disabled?: boolean }>
+	swarmAgents?: Record<string, { model?: string; temperature?: number; disabled?: boolean }>,
+	swarmPrefix?: string
 ): string {
 	// Strip swarm prefix if present (e.g., "local_coder" -> "coder")
-	const baseAgentName = agentName.includes('_') 
-		? agentName.substring(agentName.indexOf('_') + 1)
-		: agentName;
+	// Only strip if we have a known swarm prefix, not just any underscore
+	let baseAgentName = agentName;
+	if (swarmPrefix && agentName.startsWith(`${swarmPrefix}_`)) {
+		baseAgentName = agentName.substring(swarmPrefix.length + 1);
+	}
 
 	// 1. Check explicit override
 	const explicit = swarmAgents?.[baseAgentName]?.model;
@@ -57,11 +60,13 @@ function getModelForAgent(
  */
 function isAgentDisabled(
 	agentName: string,
-	swarmAgents?: Record<string, { disabled?: boolean }>
+	swarmAgents?: Record<string, { disabled?: boolean }>,
+	swarmPrefix?: string
 ): boolean {
-	const baseAgentName = agentName.includes('_') 
-		? agentName.substring(agentName.indexOf('_') + 1)
-		: agentName;
+	let baseAgentName = agentName;
+	if (swarmPrefix && agentName.startsWith(`${swarmPrefix}_`)) {
+		baseAgentName = agentName.substring(swarmPrefix.length + 1);
+	}
 	return swarmAgents?.[baseAgentName]?.disabled === true;
 }
 
@@ -70,11 +75,13 @@ function isAgentDisabled(
  */
 function getTemperatureOverride(
 	agentName: string,
-	swarmAgents?: Record<string, { temperature?: number }>
+	swarmAgents?: Record<string, { temperature?: number }>,
+	swarmPrefix?: string
 ): number | undefined {
-	const baseAgentName = agentName.includes('_') 
-		? agentName.substring(agentName.indexOf('_') + 1)
-		: agentName;
+	let baseAgentName = agentName;
+	if (swarmPrefix && agentName.startsWith(`${swarmPrefix}_`)) {
+		baseAgentName = agentName.substring(swarmPrefix.length + 1);
+	}
 	return swarmAgents?.[baseAgentName]?.temperature;
 }
 
@@ -83,9 +90,10 @@ function getTemperatureOverride(
  */
 function applyOverrides(
 	agent: AgentDefinition,
-	swarmAgents?: Record<string, { temperature?: number }>
+	swarmAgents?: Record<string, { temperature?: number }>,
+	swarmPrefix?: string
 ): AgentDefinition {
-	const tempOverride = getTemperatureOverride(agent.name, swarmAgents);
+	const tempOverride = getTemperatureOverride(agent.name, swarmAgents, swarmPrefix);
 	if (tempOverride !== undefined) {
 		agent.config.temperature = tempOverride;
 	}
@@ -103,11 +111,13 @@ function createSwarmAgents(
 	const agents: AgentDefinition[] = [];
 	const swarmAgents = swarmConfig.agents;
 	
-	// Prefix for non-default swarms (e.g., "local_" for swarmId "local")
+	// Prefix for non-default swarms (e.g., "local" for swarmId "local")
+	// We pass swarmId as the prefix identifier, but only prepend to names if not default
 	const prefix = isDefault ? '' : `${swarmId}_`;
+	const swarmPrefix = isDefault ? undefined : swarmId;
 	
-	// Helper to get model for agent
-	const getModel = (name: string) => getModelForAgent(name, swarmAgents);
+	// Helper to get model for agent (pass base name, not prefixed)
+	const getModel = (baseName: string) => getModelForAgent(baseName, swarmAgents, swarmPrefix);
 
 	// Helper to load custom prompts
 	const getPrompts = (name: string) => loadAgentPrompt(name);
@@ -119,7 +129,7 @@ function createSwarmAgents(
 	const subagentNames = ALL_SUBAGENT_NAMES.map(name => `@${prefix}${name}`).join(' ');
 
 	// 1. Create Architect
-	if (!isAgentDisabled('architect', swarmAgents)) {
+	if (!isAgentDisabled('architect', swarmAgents, swarmPrefix)) {
 		const architectPrompts = getPrompts('architect');
 		const architect = createArchitectAgent(
 			getModel('architect'),
@@ -148,11 +158,11 @@ function createSwarmAgents(
 			);
 		}
 		
-		agents.push(applyOverrides(architect, swarmAgents));
+		agents.push(applyOverrides(architect, swarmAgents, swarmPrefix));
 	}
 
 	// 2. Create Explorer
-	if (!isAgentDisabled('explorer', swarmAgents)) {
+	if (!isAgentDisabled('explorer', swarmAgents, swarmPrefix)) {
 		const explorerPrompts = getPrompts('explorer');
 		const explorer = createExplorerAgent(
 			getModel('explorer'),
@@ -160,20 +170,22 @@ function createSwarmAgents(
 			explorerPrompts.appendPrompt
 		);
 		explorer.name = prefixName('explorer');
-		agents.push(applyOverrides(explorer, swarmAgents));
+		agents.push(applyOverrides(explorer, swarmAgents, swarmPrefix));
 	}
 
 	// 3. Create all SME agents
 	const smeAgents = createAllSMEAgents(getModel, getPrompts);
 	for (const sme of smeAgents) {
-		if (!isAgentDisabled(sme.name, swarmAgents)) {
-			sme.name = prefixName(sme.name);
-			agents.push(applyOverrides(sme, swarmAgents));
+		// Check disabled using the base SME name (e.g., "sme_powershell")
+		if (!isAgentDisabled(sme.name, swarmAgents, swarmPrefix)) {
+			const baseName = sme.name;
+			sme.name = prefixName(baseName);
+			agents.push(applyOverrides(sme, swarmAgents, swarmPrefix));
 		}
 	}
 
 	// 4. Create pipeline agents
-	if (!isAgentDisabled('coder', swarmAgents)) {
+	if (!isAgentDisabled('coder', swarmAgents, swarmPrefix)) {
 		const coderPrompts = getPrompts('coder');
 		const coder = createCoderAgent(
 			getModel('coder'),
@@ -181,10 +193,10 @@ function createSwarmAgents(
 			coderPrompts.appendPrompt
 		);
 		coder.name = prefixName('coder');
-		agents.push(applyOverrides(coder, swarmAgents));
+		agents.push(applyOverrides(coder, swarmAgents, swarmPrefix));
 	}
 
-	if (!isAgentDisabled('security_reviewer', swarmAgents)) {
+	if (!isAgentDisabled('security_reviewer', swarmAgents, swarmPrefix)) {
 		const securityPrompts = getPrompts('security_reviewer');
 		const security = createSecurityReviewerAgent(
 			getModel('security_reviewer'),
@@ -192,10 +204,10 @@ function createSwarmAgents(
 			securityPrompts.appendPrompt
 		);
 		security.name = prefixName('security_reviewer');
-		agents.push(applyOverrides(security, swarmAgents));
+		agents.push(applyOverrides(security, swarmAgents, swarmPrefix));
 	}
 
-	if (!isAgentDisabled('auditor', swarmAgents)) {
+	if (!isAgentDisabled('auditor', swarmAgents, swarmPrefix)) {
 		const auditorPrompts = getPrompts('auditor');
 		const auditor = createAuditorAgent(
 			getModel('auditor'),
@@ -203,10 +215,10 @@ function createSwarmAgents(
 			auditorPrompts.appendPrompt
 		);
 		auditor.name = prefixName('auditor');
-		agents.push(applyOverrides(auditor, swarmAgents));
+		agents.push(applyOverrides(auditor, swarmAgents, swarmPrefix));
 	}
 
-	if (!isAgentDisabled('test_engineer', swarmAgents)) {
+	if (!isAgentDisabled('test_engineer', swarmAgents, swarmPrefix)) {
 		const testPrompts = getPrompts('test_engineer');
 		const testEngineer = createTestEngineerAgent(
 			getModel('test_engineer'),
@@ -214,7 +226,7 @@ function createSwarmAgents(
 			testPrompts.appendPrompt
 		);
 		testEngineer.name = prefixName('test_engineer');
-		agents.push(applyOverrides(testEngineer, swarmAgents));
+		agents.push(applyOverrides(testEngineer, swarmAgents, swarmPrefix));
 	}
 
 	return agents;
