@@ -8,7 +8,6 @@ export type { AgentDefinition } from './architect';
 export declare function createAgents(config?: PluginConfig): AgentDefinition[];
 /**
  * Get agent configurations formatted for the OpenCode SDK.
- * Converts agent definitions to SDK config format and applies mode metadata.
  */
 export declare function getAgentConfigs(config?: PluginConfig): Record<string, SDKAgentConfig>;
 export { createArchitectAgent } from './architect';

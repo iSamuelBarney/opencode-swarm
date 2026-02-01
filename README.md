@@ -245,6 +245,59 @@ Swarm lets you mix models strategically:
 
 ---
 
+## Multiple Swarms
+
+Run different model configurations simultaneously. Perfect for:
+- **Cloud vs Local**: Premium cloud models for critical work, local models for quick tasks
+- **Fast vs Quality**: Quick iterations with fast models, careful work with expensive ones
+- **Cost Tiers**: Cheap models for exploration, premium for implementation
+
+### Configuration
+
+```json
+{
+  "swarms": {
+    "cloud": {
+      "name": "Cloud",
+      "agents": {
+        "architect": { "model": "anthropic/claude-sonnet-4-5" },
+        "coder": { "model": "anthropic/claude-sonnet-4-5" },
+        "_sme": { "model": "google/gemini-2.0-flash" },
+        "_qa": { "model": "openai/gpt-4o" }
+      }
+    },
+    "local": {
+      "name": "Local",
+      "agents": {
+        "architect": { "model": "ollama/qwen2.5:32b" },
+        "coder": { "model": "ollama/qwen2.5:32b" },
+        "_sme": { "model": "ollama/qwen2.5:14b" },
+        "_qa": { "model": "ollama/qwen2.5:14b" }
+      }
+    }
+  }
+}
+```
+
+### What Gets Created
+
+| Swarm | Agents |
+|-------|--------|
+| `cloud` (default) | `architect`, `explorer`, `coder`, `sme_*`, etc. |
+| `local` | `local_architect`, `local_explorer`, `local_coder`, `local_sme_*`, etc. |
+
+The first swarm (or one named "default") creates unprefixed agents. Additional swarms prefix all agent names.
+
+### Usage
+
+In OpenCode, you'll see multiple architects to choose from:
+- `architect` - Cloud swarm (default)
+- `local_architect` - Local swarm
+
+Each architect automatically delegates to its own swarm's agents.
+
+---
+
 ## Installation
 
 ```bash

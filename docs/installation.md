@@ -128,6 +128,128 @@ Adjust creativity/determinism per agent:
 }
 ```
 
+---
+
+## Multiple Swarms
+
+Run multiple independent swarms with different model configurations.
+
+### Basic Multi-Swarm Setup
+
+```json
+{
+  "swarms": {
+    "cloud": {
+      "name": "Cloud",
+      "agents": {
+        "architect": { "model": "anthropic/claude-sonnet-4-5" },
+        "coder": { "model": "anthropic/claude-sonnet-4-5" },
+        "_sme": { "model": "google/gemini-2.0-flash" },
+        "_qa": { "model": "openai/gpt-4o" }
+      }
+    },
+    "local": {
+      "name": "Local",
+      "agents": {
+        "architect": { "model": "ollama/qwen2.5:32b" },
+        "coder": { "model": "ollama/qwen2.5:32b" },
+        "_sme": { "model": "ollama/qwen2.5:14b" },
+        "_qa": { "model": "ollama/qwen2.5:14b" }
+      }
+    }
+  }
+}
+```
+
+### How It Works
+
+1. **First swarm is default**: The first swarm (or one named "default") creates standard agent names (`architect`, `coder`, etc.)
+
+2. **Additional swarms are prefixed**: Other swarms prefix all agents with the swarm ID:
+   - `local_architect`
+   - `local_coder`
+   - `local_sme_powershell`
+   - etc.
+
+3. **Each architect knows its agents**: The `local_architect` prompt is automatically updated to reference `@local_explorer`, `@local_coder`, etc.
+
+4. **Display names in UI**: The `name` field (e.g., "Local") appears in descriptions.
+
+### Example: Three-Tier Configuration
+
+```json
+{
+  "swarms": {
+    "premium": {
+      "name": "Premium (Cloud)",
+      "agents": {
+        "architect": { "model": "anthropic/claude-sonnet-4-5" },
+        "coder": { "model": "anthropic/claude-sonnet-4-5" },
+        "_sme": { "model": "anthropic/claude-sonnet-4-5" },
+        "_qa": { "model": "openai/gpt-4o" }
+      }
+    },
+    "balanced": {
+      "name": "Balanced",
+      "agents": {
+        "architect": { "model": "anthropic/claude-sonnet-4-5" },
+        "coder": { "model": "google/gemini-2.0-flash" },
+        "_sme": { "model": "google/gemini-2.0-flash" },
+        "_qa": { "model": "google/gemini-2.0-flash" }
+      }
+    },
+    "local": {
+      "name": "Local (Offline)",
+      "agents": {
+        "architect": { "model": "ollama/qwen2.5:32b" },
+        "coder": { "model": "ollama/qwen2.5:32b" },
+        "_sme": { "model": "ollama/qwen2.5:14b" },
+        "_qa": { "model": "ollama/qwen2.5:14b" }
+      }
+    }
+  }
+}
+```
+
+This creates:
+- `architect` (Premium)
+- `balanced_architect` (Balanced)
+- `local_architect` (Local)
+
+### Swarm-Specific Overrides
+
+Each swarm supports the same configuration options as the legacy `agents` block:
+
+```json
+{
+  "swarms": {
+    "local": {
+      "name": "Local",
+      "agents": {
+        "architect": { "model": "ollama/qwen2.5:32b" },
+        "_sme": { "model": "ollama/qwen2.5:14b" },
+        "sme_security": { "model": "ollama/qwen2.5:32b" },
+        "sme_vmware": { "disabled": true }
+      }
+    }
+  }
+}
+```
+
+### Legacy Compatibility
+
+If you don't use `swarms`, the legacy `agents` config still works:
+
+```json
+{
+  "agents": {
+    "architect": { "model": "anthropic/claude-sonnet-4-5" }
+  }
+}
+```
+
+This creates a single swarm with standard agent names.
+
 Lower (0.0-0.2) = more deterministic, better for code
 Higher (0.5-0.8) = more creative, better for brainstorming
 

@@ -24,11 +24,13 @@ export type {
 export {
 	AgentOverrideConfigSchema,
 	PluginConfigSchema,
+	SwarmConfigSchema,
 } from './schema';
 
 export type {
 	AgentOverrideConfig,
 	PluginConfig,
+	SwarmConfig,
 } from './schema';
 
 export {
