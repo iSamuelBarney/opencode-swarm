@@ -106,7 +106,8 @@ function applyOverrides(
 function createSwarmAgents(
 	swarmId: string,
 	swarmConfig: SwarmConfig,
-	isDefault: boolean
+	isDefault: boolean,
+	pluginConfig?: PluginConfig
 ): AgentDefinition[] {
 	const agents: AgentDefinition[] = [];
 	const swarmAgents = swarmConfig.agents;
@@ -115,6 +116,9 @@ function createSwarmAgents(
 	// We pass swarmId as the prefix identifier, but only prepend to names if not default
 	const prefix = isDefault ? '' : `${swarmId}_`;
 	const swarmPrefix = isDefault ? undefined : swarmId;
+	
+	// Get qa_retry_limit from config (default: 3)
+	const qaRetryLimit = pluginConfig?.qa_retry_limit ?? 3;
 	
 	// Helper to get model for agent (pass base name, not prefixed)
 	const getModel = (baseName: string) => getModelForAgent(baseName, swarmAgents, swarmPrefix);
@@ -145,7 +149,8 @@ function createSwarmAgents(
 		
 		architect.config.prompt = architect.config.prompt
 			?.replace(/\{\{SWARM_ID\}\}/g, swarmIdentity)
-			.replace(/\{\{AGENT_PREFIX\}\}/g, agentPrefix);
+			.replace(/\{\{AGENT_PREFIX\}\}/g, agentPrefix)
+			.replace(/\{\{QA_RETRY_LIMIT\}\}/g, String(qaRetryLimit));
 		
 		// Add warning header for non-default swarms
 		if (!isDefault) {
@@ -252,7 +257,7 @@ export function createAgents(config?: PluginConfig): AgentDefinition[] {
 		for (const swarmId of swarmIds) {
 			const swarmConfig = swarms[swarmId];
 			const isDefault = swarmId === defaultSwarmId;
-			const swarmAgents = createSwarmAgents(swarmId, swarmConfig, isDefault);
+			const swarmAgents = createSwarmAgents(swarmId, swarmConfig, isDefault, config);
 			allAgents.push(...swarmAgents);
 		}
 	} else {
@@ -261,7 +266,7 @@ export function createAgents(config?: PluginConfig): AgentDefinition[] {
 			name: 'Default',
 			agents: config?.agents,
 		};
-		const swarmAgents = createSwarmAgents('default', legacySwarmConfig, true);
+		const swarmAgents = createSwarmAgents('default', legacySwarmConfig, true, config);
 		allAgents.push(...swarmAgents);
 	}
 

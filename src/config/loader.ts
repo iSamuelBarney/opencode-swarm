@@ -98,9 +98,10 @@ export function loadPluginConfig(directory: string): PluginConfig {
 
 	let config: PluginConfig = loadConfigFromPath(userConfigPath) ?? {
 		max_iterations: 5,
+		qa_retry_limit: 3,
 		multi_domain_sme: true,
 		auto_detect_domains: true,
-		inject_phase_reminders: false,
+		inject_phase_reminders: true,
 	};
 
 	const projectConfig = loadConfigFromPath(projectConfigPath);

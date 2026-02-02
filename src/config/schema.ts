@@ -30,12 +30,15 @@ export const PluginConfigSchema = z.object({
 	// Pipeline settings
 	max_iterations: z.number().min(1).max(10).default(5),
 
+	// QA workflow settings
+	qa_retry_limit: z.number().min(1).max(10).default(3),
+
 	// SME behavior
 	multi_domain_sme: z.boolean().default(true),
 
 	// Feature flags
 	auto_detect_domains: z.boolean().default(true),
-	inject_phase_reminders: z.boolean().default(false),
+	inject_phase_reminders: z.boolean().default(true),
 });
 
 export type PluginConfig = z.infer<typeof PluginConfigSchema>;

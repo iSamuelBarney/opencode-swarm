@@ -13759,9 +13759,10 @@ var PluginConfigSchema = exports_external.object({
   agents: exports_external.record(exports_external.string(), AgentOverrideConfigSchema).optional(),
   swarms: exports_external.record(exports_external.string(), SwarmConfigSchema).optional(),
   max_iterations: exports_external.number().min(1).max(10).default(5),
+  qa_retry_limit: exports_external.number().min(1).max(10).default(3),
   multi_domain_sme: exports_external.boolean().default(true),
   auto_detect_domains: exports_external.boolean().default(true),
-  inject_phase_reminders: exports_external.boolean().default(false)
+  inject_phase_reminders: exports_external.boolean().default(true)
 });
 // src/config/loader.ts
 import * as fs from "fs";
@@ -13812,9 +13813,10 @@ function loadPluginConfig(directory) {
   const projectConfigPath = path.join(directory, ".opencode", CONFIG_FILENAME);
   let config2 = loadConfigFromPath(userConfigPath) ?? {
     max_iterations: 5,
+    qa_retry_limit: 3,
     multi_domain_sme: true,
     auto_detect_domains: true,
-    inject_phase_reminders: false
+    inject_phase_reminders: true
   };
   const projectConfig = loadConfigFromPath(projectConfigPath);
   if (projectConfig) {
@@ -13868,12 +13870,12 @@ You THINK. Subagents DO. You have the largest context window and strongest reaso
 1. DELEGATE all coding to @{{AGENT_PREFIX}}coder. You do NOT write code.
 2. ONE agent per message. Send, STOP, wait for response.
 3. ONE task per @{{AGENT_PREFIX}}coder call. Never batch.
-4. Fallback: Only code yourself after 3 @{{AGENT_PREFIX}}coder failures on same task.
+4. Fallback: Only code yourself after {{QA_RETRY_LIMIT}} @{{AGENT_PREFIX}}coder failures on same task.
 
 ## AGENTS
 
 @{{AGENT_PREFIX}}explorer - Codebase analysis
-@{{AGENT_PREFIX}}sme_[domain] - Domain expertise (windows, powershell, python, oracle, network, security, linux, vmware, azure, active_directory, ui_ux, web, database, devops, api)
+@{{AGENT_PREFIX}}sme_[domain] - Domain expertise (windows, powershell, python, oracle, network, security, linux, vmware, azure, active_directory, ui_ux, web, database, devops, api, ai)
 @{{AGENT_PREFIX}}coder - Implementation (one task at a time)
 @{{AGENT_PREFIX}}test_engineer - Test generation
 @{{AGENT_PREFIX}}security_reviewer - Vulnerability review
@@ -13969,8 +13971,8 @@ For each task (respecting dependencies):
 5c. @{{AGENT_PREFIX}}auditor - Verify
 5d. Result:
     - APPROVED \u2192 5e
-    - REJECTED (attempt 1-2) \u2192 Feedback to @{{AGENT_PREFIX}}coder, retry
-    - REJECTED (attempt 3) \u2192 Escalate, handle directly
+    - REJECTED (attempt < {{QA_RETRY_LIMIT}}) \u2192 Feedback to @{{AGENT_PREFIX}}coder, retry
+    - REJECTED (attempt {{QA_RETRY_LIMIT}}) \u2192 Escalate, handle directly
 5e. @{{AGENT_PREFIX}}test_engineer - Generate tests
 5f. Update plan.md [x], proceed to next task
 
@@ -14348,6 +14350,20 @@ var activeDirectorySMEConfig = {
 - ADSI/DirectoryServices .NET`
 };
 
+// src/agents/sme/ai.ts
+var aiSMEConfig = {
+  domain: "ai",
+  description: "AI/LLM systems and prompt engineering",
+  guidance: `- Prompt engineering (CoT, few-shot, structured output)
+- Context window management, token optimization
+- Model selection tradeoffs (cost, latency, capability)
+- Agent orchestration patterns (delegation, handoff)
+- RAG architectures, embedding strategies
+- Fine-tuning vs prompting decisions
+- Safety/alignment considerations
+- Tool use and function calling patterns`
+};
+
 // src/agents/sme/api.ts
 var apiSMEConfig = {
   domain: "api",
@@ -14561,7 +14577,8 @@ var SME_CONFIGS = {
   web: webSMEConfig,
   database: databaseSMEConfig,
   devops: devopsSMEConfig,
-  api: apiSMEConfig
+  api: apiSMEConfig,
+  ai: aiSMEConfig
 };
 var AGENT_TO_DOMAIN = {
   sme_windows: "windows",
@@ -14578,7 +14595,8 @@ var AGENT_TO_DOMAIN = {
   sme_web: "web",
   sme_database: "database",
   sme_devops: "devops",
-  sme_api: "api"
+  sme_api: "api",
+  sme_ai: "ai"
 };
 function createAllSMEAgents(getModel, loadPrompt) {
   return Object.entries(AGENT_TO_DOMAIN).map(([agentName, domain2]) => {
@@ -14633,11 +14651,12 @@ function applyOverrides(agent, swarmAgents, swarmPrefix) {
   }
   return agent;
 }
-function createSwarmAgents(swarmId, swarmConfig, isDefault) {
+function createSwarmAgents(swarmId, swarmConfig, isDefault, pluginConfig) {
   const agents = [];
   const swarmAgents = swarmConfig.agents;
   const prefix = isDefault ? "" : `${swarmId}_`;
   const swarmPrefix = isDefault ? undefined : swarmId;
+  const qaRetryLimit = pluginConfig?.qa_retry_limit ?? 3;
   const getModel = (baseName) => getModelForAgent(baseName, swarmAgents, swarmPrefix);
   const getPrompts = (name) => loadAgentPrompt(name);
   const prefixName = (name) => `${prefix}${name}`;
@@ -14649,7 +14668,7 @@ function createSwarmAgents(swarmId, swarmConfig, isDefault) {
     const swarmName = swarmConfig.name || swarmId;
     const swarmIdentity = isDefault ? "default" : swarmId;
     const agentPrefix = prefix;
-    architect.config.prompt = architect.config.prompt?.replace(/\{\{SWARM_ID\}\}/g, swarmIdentity).replace(/\{\{AGENT_PREFIX\}\}/g, agentPrefix);
+    architect.config.prompt = architect.config.prompt?.replace(/\{\{SWARM_ID\}\}/g, swarmIdentity).replace(/\{\{AGENT_PREFIX\}\}/g, agentPrefix).replace(/\{\{QA_RETRY_LIMIT\}\}/g, String(qaRetryLimit));
     if (!isDefault) {
       architect.description = `[${swarmName}] ${architect.description}`;
       const swarmHeader = `## \u26A0\uFE0F YOU ARE THE ${swarmName.toUpperCase()} SWARM ARCHITECT
@@ -14711,7 +14730,7 @@ function createAgents(config2) {
     for (const swarmId of swarmIds) {
       const swarmConfig = swarms[swarmId];
       const isDefault = swarmId === defaultSwarmId;
-      const swarmAgents = createSwarmAgents(swarmId, swarmConfig, isDefault);
+      const swarmAgents = createSwarmAgents(swarmId, swarmConfig, isDefault, config2);
       allAgents.push(...swarmAgents);
     }
   } else {
@@ -14719,7 +14738,7 @@ function createAgents(config2) {
       name: "Default",
       agents: config2?.agents
     };
-    const swarmAgents = createSwarmAgents("default", legacySwarmConfig, true);
+    const swarmAgents = createSwarmAgents("default", legacySwarmConfig, true, config2);
     allAgents.push(...swarmAgents);
   }
   return allAgents;

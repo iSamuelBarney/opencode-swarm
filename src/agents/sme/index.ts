@@ -3,6 +3,7 @@ import { type SMEDomainConfig, createSMEAgent } from './base';
 
 // Import all SME configurations
 import { activeDirectorySMEConfig } from './active-directory';
+import { aiSMEConfig } from './ai';
 import { apiSMEConfig } from './api';
 import { azureSMEConfig } from './azure';
 import { databaseSMEConfig } from './database';
@@ -35,6 +36,7 @@ export const SME_CONFIGS: Record<string, SMEDomainConfig> = {
 	database: databaseSMEConfig,
 	devops: devopsSMEConfig,
 	api: apiSMEConfig,
+	ai: aiSMEConfig,
 };
 
 // Map of agent name to domain
@@ -54,6 +56,7 @@ export const AGENT_TO_DOMAIN: Record<string, string> = {
 	sme_database: 'database',
 	sme_devops: 'devops',
 	sme_api: 'api',
+	sme_ai: 'ai',
 };
 
 /**
