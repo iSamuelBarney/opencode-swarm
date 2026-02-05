@@ -17,6 +17,8 @@ import { securitySMEConfig } from './security';
 import { uiUxSMEConfig } from './ui-ux';
 import { vmwareSMEConfig } from './vmware';
 import { webSMEConfig } from './web';
+import { mobileSMEConfig } from './mobile';
+import { swiftSMEConfig } from './swift';
 import { windowsSMEConfig } from './windows';
 
 // Map of domain name to SME configuration
@@ -37,6 +39,8 @@ export const SME_CONFIGS: Record<string, SMEDomainConfig> = {
 	devops: devopsSMEConfig,
 	api: apiSMEConfig,
 	ai: aiSMEConfig,
+	mobile: mobileSMEConfig,
+	swift: swiftSMEConfig,
 };
 
 // Map of agent name to domain
@@ -57,6 +61,8 @@ export const AGENT_TO_DOMAIN: Record<string, string> = {
 	sme_devops: 'devops',
 	sme_api: 'api',
 	sme_ai: 'ai',
+	sme_mobile: 'mobile',
+	sme_swift: 'swift',
 };
 
 /**

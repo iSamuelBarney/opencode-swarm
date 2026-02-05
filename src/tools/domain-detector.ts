@@ -9,7 +9,7 @@ export const detect_domains: ToolDefinition = tool({
 	description:
 		'Detect which SME domains are relevant for a given text. ' +
 		'Returns a list of domain names (windows, powershell, python, oracle, ' +
-		'network, security, linux, vmware, azure, active_directory, ui_ux) ' +
+		'network, security, linux, vmware, azure, active_directory, ui_ux, mobile, swift) ' +
 		'that match patterns in the input text.',
 	args: {
 		text: tool.schema

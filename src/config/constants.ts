@@ -16,6 +16,8 @@ export const SME_AGENTS = [
 	'sme_devops',
 	'sme_api',
 	'sme_ai',
+	'sme_mobile',
+	'sme_swift',
 ] as const;
 
 export const QA_AGENTS = ['security_reviewer', 'auditor'] as const;
@@ -220,6 +222,37 @@ export const DOMAIN_PATTERNS: Record<string, RegExp[]> = {
 		/\btypography\b/i,
 		/\blayout\b/i,
 		/\bresponsive\b/i,
+	],
+	mobile: [
+		/\bmobile\b/i,
+		/\breact.native\b/i,
+		/\breact\s*native\b/i,
+		/\bexpo\b/i,
+		/\bmmkv\b/i,
+		/\bcocoapods\b/i,
+		/\bmodule\s*federation\b/i,
+		/\bmetro\b/i,
+		/\bflatlist\b/i,
+		/\bapp\s*store\b/i,
+		/\bplay\s*store\b/i,
+		/\beas\s*build\b/i,
+		/\bdeep\s*link/i,
+	],
+	swift: [
+		/\bswift\b/i,
+		/\bswiftui\b/i,
+		/\buikit\b/i,
+		/\bxcode\b/i,
+		/\bspm\b/i,
+		/\bswift\s*package\b/i,
+		/\bcombine\b/i,
+		/\bcore\s*data\b/i,
+		/\bcloudkit\b/i,
+		/\bkeychain\b/i,
+		/\bauto\s*layout\b/i,
+		/\bstoryboard\b/i,
+		/\bwkwebview\b/i,
+		/\b\.swift\b/i,
 	],
 };
 
